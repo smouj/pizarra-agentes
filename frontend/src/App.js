@@ -25,8 +25,43 @@ function App() {
   const [isConnected, setIsConnected] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [typingMessage, setTypingMessage] = useState(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const messagesEndRef = useRef(null);
   const ws = useRef(null);
+
+  // Audio refs
+  const audioRefs = useRef({
+    beep: null,
+    callStart: null,
+    messageReceived: null,
+    alert: null
+  });
+
+  // Initialize audio
+  useEffect(() => {
+    const tryFormats = async (basePath) => {
+      const formats = ['mp3', 'wav', 'ogg'];
+      for (const format of formats) {
+        try {
+          const audio = new Audio(`${basePath}.${format}`);
+          await audio.load();
+          return audio;
+        } catch (e) {
+          // Try next format
+        }
+      }
+      return null;
+    };
+
+    const loadSounds = async () => {
+      audioRefs.current.beep = await tryFormats('/sounds/beep');
+      audioRefs.current.callStart = await tryFormats('/sounds/call-start');
+      audioRefs.current.messageReceived = await tryFormats('/sounds/message-received');
+      audioRefs.current.alert = await tryFormats('/sounds/alert');
+    };
+
+    loadSounds();
+  }, []);
 
   // Initialize
   useEffect(() => {
@@ -34,17 +69,23 @@ function App() {
     loadAgents();
     loadMetrics();
     checkConfig();
-    
+
     // Update time every second
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
+
+    // Update metrics every 5 seconds
+    const metricsInterval = setInterval(() => {
+      loadMetrics();
+    }, 5000);
 
     // Setup WebSocket
     setupWebSocket();
 
     return () => {
       clearInterval(timeInterval);
+      clearInterval(metricsInterval);
       if (ws.current) ws.current.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,26 +205,37 @@ function App() {
 
   const startConversation = async (agent) => {
     try {
+      playCallStart();
       const response = await axios.post(`${BACKEND_URL}/api/conversations`, null, {
         params: {
           agent_id: agent.id,
-          title: `Codec Call - ${agent.name}`
+          title: `🦞 Codec Call - ${agent.name}`
         }
       });
       setConversation(response.data);
       setMessages(response.data.messages || []);
       setSelectedAgent(agent);
-      playBeep();
     } catch (error) {
       console.error('Failed to start conversation:', error);
+      playAlert();
+      alert('Failed to initiate codec call. Check connection.');
     }
   };
 
-  const loadConversation = async (convId) => {
+  const loadConversation = async (convId, playSound = false) => {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/conversations/${convId}`);
+      const oldLength = messages.length;
       setConversation(response.data);
       setMessages(response.data.messages || []);
+
+      // Play sound if new messages arrived
+      if (playSound && response.data.messages.length > oldLength) {
+        const lastMsg = response.data.messages[response.data.messages.length - 1];
+        if (lastMsg.role === 'agent') {
+          playMessageReceived();
+        }
+      }
     } catch (error) {
       console.error('Failed to load conversation:', error);
     }
@@ -225,7 +277,7 @@ function App() {
 
       // Load updated conversation
       setTimeout(() => {
-        loadConversation(conversation.id);
+        loadConversation(conversation.id, true);
         setTypingMessage(null);
       }, 1000);
 
@@ -235,10 +287,21 @@ function App() {
     }
   };
 
-  const playBeep = () => {
-    // Placeholder for audio beep
-    console.log('BEEP');
+  const playSound = (soundName) => {
+    if (!soundEnabled) return;
+    const audio = audioRefs.current[soundName];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log('Audio play failed:', e));
+    }
   };
+
+  const playBeep = () => playSound('beep');
+  const playCallStart = () => playSound('callStart');
+  const playMessageReceived = () => playSound('messageReceived');
+  const playAlert = () => playSound('alert');
+  const toggleSound = () => setSoundEnabled(!soundEnabled);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -298,20 +361,45 @@ function App() {
 
           {/* Main Codec Interface */}
           <div className="codec-main">
-            {/* Left Portrait */}
-            <div className="portrait-container left-portrait">
-              <div className="portrait-frame">
-                {selectedAgent && (
-                  <div className="agent-portrait">
-                    <div className="portrait-image">
-                      <div className={`avatar-${selectedAgent.avatar}`}></div>
+            {/* Left Column - Portrait + HUD Metrics */}
+            <div className="left-column">
+              <div className="portrait-container">
+                <div className="portrait-frame">
+                  {selectedAgent && (
+                    <div className="agent-portrait">
+                      <div className="portrait-image">
+                        <div className={`avatar-${selectedAgent.avatar}`}></div>
+                      </div>
+                      <div className="portrait-info">
+                        <div className="portrait-name">{selectedAgent.name}</div>
+                        <div className="portrait-type">{selectedAgent.type.toUpperCase()}</div>
+                      </div>
                     </div>
-                    <div className="portrait-info">
-                      <div className="portrait-name">{selectedAgent.name}</div>
-                      <div className="portrait-type">{selectedAgent.type.toUpperCase()}</div>
-                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* HUD Metrics */}
+              <div className="hud-metrics">
+                <div className="metric-item">
+                  <span className="metric-label">LIFE</span>
+                  <div className="metric-bar">
+                    <div className="bar-fill" style={{width: `${100 - metrics.tokens_per_minute / 2}%`}}></div>
                   </div>
-                )}
+                  <span className="metric-value">{Math.round(100 - metrics.tokens_per_minute / 2)}%</span>
+                </div>
+                <div className="metric-item">
+                  <span className="metric-label">RATIONS</span>
+                  <span className="metric-value digital">${metrics.cost_per_hour.toFixed(2)}/h</span>
+                </div>
+                <div className="metric-item">
+                  <span className="metric-label">AGENTS</span>
+                  <span className="metric-value digital">{metrics.active_agents}/{agents.length}</span>
+                </div>
+                <div className="metric-item">
+                  <span className="metric-label">MEMORY</span>
+                  <span className="metric-value digital">{metrics.memory_usage.toFixed(1)}%</span>
+                </div>
               </div>
             </div>
 
@@ -319,7 +407,16 @@ function App() {
             <div className="conversation-container">
               {/* Timer Bar */}
               <div className="timer-bar">
-                <button className="nav-btn">&lt;</button>
+                <button
+                  className="nav-btn"
+                  onClick={() => {
+                    playBeep();
+                    const currentIndex = agents.indexOf(selectedAgent);
+                    const prevAgent = agents[(currentIndex - 1 + agents.length) % agents.length];
+                    setSelectedAgent(prevAgent);
+                  }}
+                  title="Previous agent"
+                >&lt;</button>
                 <div className="timer-display">
                   <span className="timer-label">PTT</span>
                   <span className="timer-value">
@@ -327,10 +424,38 @@ function App() {
                   </span>
                 </div>
                 <div className="mem-tune">
-                  <span className="mem">MEM</span>
-                  <span className="tune">TUNE</span>
+                  <span
+                    className="mem"
+                    onClick={() => {
+                      playBeep();
+                      if (conversation) {
+                        navigator.clipboard.writeText(
+                          messages.map(m => `[${m.role.toUpperCase()}] ${m.content}`).join('\n\n')
+                        );
+                        alert('✓ Conversation copied to memory (clipboard)');
+                      }
+                    }}
+                    title="Save conversation to memory"
+                  >MEM</span>
+                  <span
+                    className={`tune ${soundEnabled ? 'text-mgs-green' : 'text-mgs-red'}`}
+                    onClick={() => {
+                      toggleSound();
+                      playBeep();
+                    }}
+                    title={`Sound: ${soundEnabled ? 'ON' : 'OFF'}`}
+                  >TUNE</span>
                 </div>
-                <button className="nav-btn">&gt;</button>
+                <button
+                  className="nav-btn"
+                  onClick={() => {
+                    playBeep();
+                    const currentIndex = agents.indexOf(selectedAgent);
+                    const nextAgent = agents[(currentIndex + 1) % agents.length];
+                    setSelectedAgent(nextAgent);
+                  }}
+                  title="Next agent"
+                >&gt;</button>
               </div>
 
               {/* Messages Window */}
@@ -385,47 +510,24 @@ function App() {
               </div>
             </div>
 
-            {/* Right Portrait - User/Operator */}
-            <div className="portrait-container right-portrait">
-              <div className="portrait-frame">
-                <div className="agent-portrait">
-                  <div className="portrait-image">
-                    <div className="avatar-operator"></div>
-                  </div>
-                  <div className="portrait-info">
-                    <div className="portrait-name">OPERATOR</div>
-                    <div className="portrait-type">GATEWAY</div>
+            {/* Right Column - Portrait + Agent Sidebar */}
+            <div className="right-column">
+              <div className="portrait-container">
+                <div className="portrait-frame">
+                  <div className="agent-portrait">
+                    <div className="portrait-image">
+                      <div className="avatar-operator"></div>
+                    </div>
+                    <div className="portrait-info">
+                      <div className="portrait-name">OPERATOR</div>
+                      <div className="portrait-type">GATEWAY</div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* HUD Metrics Overlay */}
-          <div className="hud-metrics">
-            <div className="metric-item">
-              <span className="metric-label">LIFE</span>
-              <div className="metric-bar">
-                <div className="bar-fill" style={{width: `${100 - metrics.tokens_per_minute / 2}%`}}></div>
-              </div>
-              <span className="metric-value">{Math.round(100 - metrics.tokens_per_minute / 2)}%</span>
-            </div>
-            <div className="metric-item">
-              <span className="metric-label">RATIONS</span>
-              <span className="metric-value digital">${metrics.cost_per_hour.toFixed(2)}/h</span>
-            </div>
-            <div className="metric-item">
-              <span className="metric-label">AGENTS</span>
-              <span className="metric-value digital">{metrics.active_agents}/{agents.length}</span>
-            </div>
-            <div className="metric-item">
-              <span className="metric-label">MEMORY</span>
-              <span className="metric-value digital">{metrics.memory_usage.toFixed(1)}%</span>
-            </div>
-          </div>
-
-          {/* Sidebar - Agent List */}
-          <div className="agent-sidebar">
+              {/* Agent Sidebar */}
+              <div className="agent-sidebar">
             <div className="sidebar-header">FREQUENCY SELECT</div>
             <div className="agent-list">
               {agents.map(agent => (
@@ -455,34 +557,71 @@ function App() {
                 </div>
               ))}
             </div>
+              </div>
+            </div>
           </div>
 
           {/* Bottom Control Bar */}
           <div className="control-bar">
             <button
               className="control-btn"
-              onClick={() => setShowTokenInput(!showTokenInput)}
+              onClick={() => {
+                playBeep();
+                setShowTokenInput(!showTokenInput);
+              }}
               data-testid="token-config-btn"
+              title="Configure API token"
             >
               <Icon name="lock" className="icon-green icon-sm" /> TOKEN
             </button>
-            <button className="control-btn" onClick={checkHealth}>
+            <button
+              className="control-btn"
+              onClick={() => {
+                playBeep();
+                checkHealth();
+                loadAgents();
+                loadMetrics();
+                if (conversation) {
+                  loadConversation(conversation.id);
+                }
+              }}
+              title="Refresh connection and data"
+            >
               <Icon name="refresh" className="icon-green icon-sm" /> REFRESH
             </button>
             <button
               className="control-btn"
               onClick={() => {
-                setConversation(null);
-                setMessages([]);
+                playBeep();
+                if (conversation && messages.length > 0) {
+                  if (window.confirm('End current codec call?')) {
+                    setConversation(null);
+                    setMessages([]);
+                  }
+                } else {
+                  setConversation(null);
+                  setMessages([]);
+                }
               }}
               data-testid="clear-session-btn"
+              title="End codec call"
             >
               EXIT
             </button>
+            <button
+              className="control-btn"
+              onClick={() => {
+                playBeep();
+                toggleSound();
+              }}
+              title={`Audio: ${soundEnabled ? 'ON' : 'OFF'}`}
+            >
+              <Icon name={soundEnabled ? "volume_up" : "volume_off"} className={`icon-sm ${soundEnabled ? 'icon-green' : 'icon-red'}`} /> AUDIO
+            </button>
             <div className="control-info">
-              <span className="text-mgs-green">
+              <span className={isConnected ? 'text-mgs-green' : 'text-mgs-red'}>
                 {hasToken ? (
-                  <><Icon name="check_circle" className="icon-green icon-sm" /> TOKEN CONFIGURED</>
+                  <><Icon name="check_circle" className="icon-green icon-sm" /> TOKEN OK</>
                 ) : (
                   <><Icon name="warning" className="icon-yellow icon-sm" /> NO TOKEN</>
                 )}
