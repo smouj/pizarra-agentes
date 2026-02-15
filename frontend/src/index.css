@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Courier New', 'VT323', monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #000000;
+  overflow: hidden;
+}
+
+code {
+  font-family: 'Courier New', monospace;
+}
+
+/* Disable text selection for authentic terminal feel */
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  background: #001100;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #00ff9d;
+  border: 1px solid #00aa66;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00ffff;
+}
