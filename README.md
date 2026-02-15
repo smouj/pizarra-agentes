@@ -100,6 +100,7 @@ Open your browser: **http://localhost:3000**
 ./start.sh      # 🚀 Iniciar todos los servicios
 ./stop.sh       # 🛑 Detener todos los servicios
 ./update.sh     # 🔄 Actualizar desde GitHub automáticamente
+./diagnose.sh   # 🩺 Diagnóstico del sistema (troubleshooting)
 ./logs.sh       # 📋 Ver logs en tiempo real
 ```
 
@@ -114,6 +115,18 @@ Open your browser: **http://localhost:3000**
 - ✅ Muestra resumen de cambios aplicados
 - ✅ Detecta cambios en dependencias
 - ✅ Retry logic con exponential backoff
+
+**Nuevo: Diagnóstico del Sistema** 🆕
+```bash
+./diagnose.sh
+```
+- ✅ Verifica todas las dependencias instaladas
+- ✅ Comprueba servicios corriendo (MongoDB, Backend, Frontend)
+- ✅ Valida puertos de red (8001, 3000)
+- ✅ Test de health del backend y MongoDB
+- ✅ Verifica estructura de archivos
+- ✅ Chequea configuración de token
+- ✅ Sugiere soluciones rápidas para problemas
 
 ---
 

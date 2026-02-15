@@ -119,23 +119,46 @@ function App() {
   };
 
   const saveToken = async () => {
-    if (!openclawToken.trim()) return;
+    if (!openclawToken.trim()) {
+      alert('Please enter an API key');
+      return;
+    }
 
     try {
       // Format token with provider prefix
       const formattedToken = `${selectedProvider}:${openclawToken}`;
 
-      await axios.post(`${BACKEND_URL}/api/config/token`, null, {
+      console.log('Saving token with provider:', selectedProvider);
+
+      const response = await axios.post(`${BACKEND_URL}/api/config/token`, null, {
         params: { token: formattedToken }
       });
-      setHasToken(true);
-      setShowTokenInput(false);
-      setOpenclawToken('');
-      setSelectedProvider('anthropic');
-      playBeep();
+
+      if (response.data.success) {
+        setHasToken(true);
+        setShowTokenInput(false);
+        setOpenclawToken('');
+        setSelectedProvider('anthropic');
+        playBeep();
+        alert('✓ API token configured successfully!');
+      }
     } catch (error) {
       console.error('Failed to save token:', error);
-      alert('Error saving token. Please check your token and try again.');
+
+      let errorMessage = 'Error saving token. ';
+
+      if (error.response) {
+        // Server responded with error
+        errorMessage += error.response.data.detail || error.response.data.message || 'Server error';
+      } else if (error.request) {
+        // Request was made but no response
+        errorMessage += 'Cannot connect to backend. Make sure the server is running (./start.sh)';
+      } else {
+        // Something else happened
+        errorMessage += error.message;
+      }
+
+      alert(errorMessage);
     }
   };
 

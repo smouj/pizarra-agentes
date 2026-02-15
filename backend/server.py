@@ -419,20 +419,44 @@ async def call_openclaw_agent(token: str, agent_id: str, message: str, conversat
 # Config endpoints
 @app.post("/api/config/token")
 async def save_openclaw_token(token: str):
-    # Encrypt token
-    encrypted_token = cipher_suite.encrypt(token.encode()).decode()
-    
-    existing_config = await db.config.find_one({})
-    if existing_config:
-        await db.config.update_one(
-            {"id": existing_config["id"]},
-            {"$set": {"openclaw_token": encrypted_token}}
-        )
-    else:
-        config = UserConfig(openclaw_token=encrypted_token)
-        await db.config.insert_one(config.dict())
-    
-    return {"success": True, "message": "Token secured"}
+    try:
+        # Validate token
+        if not token or not token.strip():
+            raise HTTPException(status_code=400, detail="Token cannot be empty")
+
+        # Check token format
+        if ":" in token:
+            provider, api_key = token.split(":", 1)
+            if provider not in ["anthropic", "openai", "openrouter"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid provider: {provider}. Must be one of: anthropic, openai, openrouter"
+                )
+            if not api_key or not api_key.strip():
+                raise HTTPException(status_code=400, detail="API key cannot be empty")
+
+        # Encrypt token
+        encrypted_token = cipher_suite.encrypt(token.encode()).decode()
+
+        existing_config = await db.config.find_one({})
+        if existing_config:
+            await db.config.update_one(
+                {"id": existing_config["id"]},
+                {"$set": {"openclaw_token": encrypted_token}}
+            )
+        else:
+            config = UserConfig(openclaw_token=encrypted_token)
+            await db.config.insert_one(config.dict())
+
+        return {"success": True, "message": "Token secured"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Error saving token: {error_detail}")
+        raise HTTPException(status_code=500, detail=f"Failed to save token: {str(e)}")
 
 @app.get("/api/config")
 async def get_config():
