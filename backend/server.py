@@ -10,6 +10,10 @@ import uuid
 import httpx
 import json
 
+# PicoClaw Agent Integration
+from picoclaw_agent import create_default_agent
+from picoclaw_agent.providers import Message as PicoMessage
+
 app = FastAPI(title="OpenClaw MGS Codec API")
 
 # CORS configuration
@@ -249,7 +253,7 @@ async def send_message(conversation_id: str, role: str, content: str, agent_id: 
         }
     )
     
-    # If user message, get OpenClaw response
+    # If user message, get PicoClaw response
     if role == "user":
         config = await db.config.find_one({})
         if config and config.get("openclaw_token"):
@@ -257,39 +261,80 @@ async def send_message(conversation_id: str, role: str, content: str, agent_id: 
                 # Decrypt token
                 encrypted_token = config["openclaw_token"]
                 openclaw_token = cipher_suite.decrypt(encrypted_token.encode()).decode()
-                
-                # Call OpenClaw API (placeholder - adjust based on actual API)
-                agent_response = await call_openclaw_agent(
+
+                # Get conversation history
+                history = conversation.get("messages", [])
+
+                # Call PicoClaw Agent
+                agent_result = await call_openclaw_agent(
                     token=openclaw_token,
                     agent_id=conversation.get("agent_id"),
-                    message=content
+                    message=content,
+                    conversation_history=history
                 )
-                
+
+                # Extract response
+                agent_content = agent_result.get("content", "Agent response received")
+                usage = agent_result.get("usage", {})
+                tool_results = agent_result.get("tool_results", [])
+
+                # Format tool results in content if any
+                if tool_results:
+                    tools_summary = "\n\n[Tools used: " + ", ".join([t.get("tool", "unknown") for t in tool_results]) + "]"
+                    agent_content += tools_summary
+
                 # Add agent response
                 response_message = Message(
                     conversation_id=conversation_id,
                     role="agent",
-                    content=agent_response,
-                    agent_id=conversation.get("agent_id")
+                    content=agent_content,
+                    agent_id=conversation.get("agent_id"),
+                    metadata={
+                        "usage": usage,
+                        "tool_results": tool_results,
+                        "iterations": agent_result.get("iterations", 1)
+                    }
                 )
-                
+
+                # Update conversation metrics
+                tokens_used = usage.get("total_tokens", 0)
                 await db.conversations.update_one(
                     {"id": conversation_id},
                     {
                         "$push": {"messages": response_message.dict()},
-                        "$set": {"updated_at": datetime.utcnow()}
+                        "$set": {"updated_at": datetime.utcnow()},
+                        "$inc": {"metrics.tokens_used": tokens_used}
                     }
                 )
-                
+
                 # Broadcast new message
                 await manager.broadcast({
                     "type": "new_message",
                     "conversation_id": conversation_id,
                     "message": response_message.dict()
                 })
-                
+
             except Exception as e:
-                print(f"OpenClaw API error: {e}")
+                import traceback
+                error_detail = traceback.format_exc()
+                print(f"PicoClaw Agent error: {error_detail}")
+
+                # Send error message
+                error_message = Message(
+                    conversation_id=conversation_id,
+                    role="system",
+                    content=f"[ERROR] Agent failed: {str(e)}",
+                    agent_id=conversation.get("agent_id")
+                )
+                await db.conversations.update_one(
+                    {"id": conversation_id},
+                    {"$push": {"messages": error_message.dict()}}
+                )
+                await manager.broadcast({
+                    "type": "new_message",
+                    "conversation_id": conversation_id,
+                    "message": error_message.dict()
+                })
     
     # Broadcast new message
     await manager.broadcast({
@@ -300,35 +345,76 @@ async def send_message(conversation_id: str, role: str, content: str, agent_id: 
     
     return message
 
-async def call_openclaw_agent(token: str, agent_id: str, message: str) -> str:
+async def call_openclaw_agent(token: str, agent_id: str, message: str, conversation_history: List[Dict] = None) -> Dict[str, Any]:
     """
-    Call OpenClaw API with user's token
-    Adjust this based on actual OpenClaw API documentation
+    Call PicoClaw Agent with user's API key
+    Supports Anthropic Claude, OpenAI, and OpenRouter
     """
     try:
-        async with httpx.AsyncClient() as client:
-            # Placeholder API call - adjust endpoint and format
-            response = await client.post(
-                "https://api.openclaw.ai/v1/chat",  # Adjust actual endpoint
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "agent_id": agent_id,
-                    "message": message,
-                    "stream": False
-                },
-                timeout=30.0
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("response", "Agent response received")
-            else:
-                return f"[ERROR] OpenClaw API returned status {response.status_code}"
+        # Parse token to determine provider
+        # Format: "provider:api_key" or just "api_key" (defaults to anthropic)
+        provider_type = "anthropic"
+        api_key = token
+
+        if ":" in token:
+            provider_type, api_key = token.split(":", 1)
+
+        # Get agent configuration
+        agent = await db.agents.find_one({"id": agent_id})
+        if not agent:
+            return {
+                "content": "[ERROR] Agent not found",
+                "usage": {},
+                "tool_results": []
+            }
+
+        # Determine workspace based on agent type
+        workspace = os.path.expanduser(f"~/.picoclaw/workspaces/{agent.get('type', 'default')}")
+
+        # Create PicoClaw agent
+        picoclaw_agent = create_default_agent(
+            api_key=api_key,
+            provider_type=provider_type,
+            workspace=workspace,
+            brave_api_key=os.getenv("BRAVE_API_KEY")  # Optional web search
+        )
+
+        # Convert conversation history to PicoClaw format
+        history = []
+        if conversation_history:
+            for msg in conversation_history:
+                if msg["role"] in ["user", "agent", "assistant"]:
+                    role = msg["role"]
+                    if role == "agent":
+                        role = "assistant"
+                    history.append(PicoMessage(
+                        role=role,
+                        content=msg["content"]
+                    ))
+
+        # Execute agent
+        response = await picoclaw_agent.chat(
+            user_message=message,
+            history=history,
+            agent_context={
+                "agent_id": agent_id,
+                "agent_name": agent.get("name"),
+                "agent_type": agent.get("type")
+            }
+        )
+
+        return response
+
     except Exception as e:
-        return f"[ERROR] Failed to contact OpenClaw: {str(e)}"
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"PicoClaw Agent error: {error_detail}")
+        return {
+            "content": f"[ERROR] Failed to contact PicoClaw Agent: {str(e)}",
+            "usage": {},
+            "tool_results": [],
+            "error": str(e)
+        }
 
 # Config endpoints
 @app.post("/api/config/token")

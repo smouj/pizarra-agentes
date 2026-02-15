@@ -88,3 +88,4 @@ frontend/.env.production.local
 # Environment files
 *.env
 *.env.*
+picoclaw/
