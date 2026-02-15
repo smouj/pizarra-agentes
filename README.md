@@ -1,5 +1,7 @@
 # 🦞 OpenClaw MGS Codec Dashboard
 
+<img width="659" height="563" alt="image" src="https://github.com/user-attachments/assets/6b1467d7-4875-4546-9db5-e72dabc9a0a0" />
+
 ### Pizarra de Agentes con Estética Metal Gear Solid
 
 Dashboard de orquestación multi-agente inspirado en la interfaz CODEC de Metal Gear Solid 1 y 2 (1998-2001). Interfaz retro-futurista de espionaje militar con tema CRT phosphor green-black auténtico.
