@@ -21,6 +21,7 @@ function App() {
   const [showTokenInput, setShowTokenInput] = useState(false);
   const [openclawToken, setOpenclawToken] = useState('');
   const [hasToken, setHasToken] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('anthropic');
   const [isConnected, setIsConnected] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [typingMessage, setTypingMessage] = useState(null);
@@ -119,18 +120,22 @@ function App() {
 
   const saveToken = async () => {
     if (!openclawToken.trim()) return;
-    
+
     try {
+      // Format token with provider prefix
+      const formattedToken = `${selectedProvider}:${openclawToken}`;
+
       await axios.post(`${BACKEND_URL}/api/config/token`, null, {
-        params: { token: openclawToken }
+        params: { token: formattedToken }
       });
       setHasToken(true);
       setShowTokenInput(false);
       setOpenclawToken('');
+      setSelectedProvider('anthropic');
       playBeep();
     } catch (error) {
       console.error('Failed to save token:', error);
-      alert('Error saving token');
+      alert('Error saving token. Please check your token and try again.');
     }
   };
 
@@ -164,7 +169,7 @@ function App() {
   const sendMessage = async () => {
     if (!inputMessage.trim() || !conversation) return;
     if (!hasToken) {
-      alert('Please configure your OpenClaw token first');
+      alert('Please configure your API token first. Click the TOKEN button to set up your AI provider.');
       setShowTokenInput(true);
       return;
     }
@@ -467,21 +472,97 @@ function App() {
             <div className="modal-overlay" onClick={() => setShowTokenInput(false)}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                  <span>SECURE TOKEN MANAGER</span>
+                  <span>🔐 SECURE TOKEN MANAGER</span>
                   <button onClick={() => setShowTokenInput(false)} className="modal-close">
                     <Icon name="close" className="icon-sm" />
                   </button>
                 </div>
                 <div className="modal-body">
-                  <p className="text-mgs-green mb-4">ENTER YOUR OPENCLAW API TOKEN:</p>
+                  <p className="text-mgs-green mb-4 font-bold">SELECT AI PROVIDER:</p>
+
+                  {/* Provider Selector */}
+                  <div className="provider-selector mb-4">
+                    <div className="provider-options">
+                      <label className={`provider-option ${selectedProvider === 'anthropic' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="anthropic"
+                          checked={selectedProvider === 'anthropic'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">Anthropic Claude</span>
+                        <span className="provider-desc">Claude 3.5 Sonnet, Opus</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'openai' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="openai"
+                          checked={selectedProvider === 'openai'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">OpenAI</span>
+                        <span className="provider-desc">GPT-4, GPT-4 Turbo</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'openrouter' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="openrouter"
+                          checked={selectedProvider === 'openrouter'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">OpenRouter</span>
+                        <span className="provider-desc">Multi-model access</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <p className="text-mgs-green mb-2 font-bold">ENTER YOUR API KEY:</p>
                   <input
                     type="password"
                     value={openclawToken}
                     onChange={(e) => setOpenclawToken(e.target.value)}
-                    placeholder="openclaw_••••••••••••••••"
+                    placeholder={
+                      selectedProvider === 'anthropic' ? 'sk-ant-api03-••••••••••••••••' :
+                      selectedProvider === 'openai' ? 'sk-••••••••••••••••' :
+                      'sk-or-••••••••••••••••'
+                    }
                     className="token-input"
                     data-testid="token-input"
+                    onKeyPress={(e) => e.key === 'Enter' && saveToken()}
                   />
+
+                  <div className="text-mgs-cyan text-xs mt-3 mb-2">
+                    {selectedProvider === 'anthropic' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          console.anthropic.com
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === 'openai' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          platform.openai.com
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === 'openrouter' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          openrouter.ai
+                        </a>
+                      </>
+                    )}
+                  </div>
+
                   <p className="text-mgs-yellow text-xs mt-2">
                     <Icon name="lock" className="icon-yellow icon-sm" /> Token will be encrypted and stored securely
                   </p>
