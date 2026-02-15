@@ -89,8 +89,31 @@ Open your browser: **http://localhost:3000**
 
 1. Abre la aplicación en tu navegador
 2. Haz clic en el botón **🔒 TOKEN** en la barra de control
-3. Ingresa tu token de API de OpenClaw
-4. El token será encriptado y almacenado de forma segura
+3. Selecciona tu proveedor de IA (Anthropic, OpenAI, o OpenRouter)
+4. Ingresa tu API key (sin prefijos adicionales)
+5. El token será encriptado y almacenado de forma segura
+
+### Scripts Disponibles
+
+```bash
+./install.sh    # 🔧 Instalación completa del sistema
+./start.sh      # 🚀 Iniciar todos los servicios
+./stop.sh       # 🛑 Detener todos los servicios
+./update.sh     # 🔄 Actualizar desde GitHub automáticamente
+./logs.sh       # 📋 Ver logs en tiempo real
+```
+
+**Nuevo: Auto-Update** 🆕
+```bash
+./update.sh
+```
+- ✅ Verifica automáticamente si hay cambios en GitHub
+- ✅ Descarga e instala actualizaciones
+- ✅ Stash/restore de cambios locales
+- ✅ Reinicia servicios si estaban corriendo
+- ✅ Muestra resumen de cambios aplicados
+- ✅ Detecta cambios en dependencias
+- ✅ Retry logic con exponential backoff
 
 ---
 
