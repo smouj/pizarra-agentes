@@ -6,12 +6,22 @@
 
 Dashboard de orquestación multi-agente inspirado en la interfaz CODEC de Metal Gear Solid 1 y 2 (1998-2001). Interfaz retro-futurista de espionaje militar con tema CRT phosphor green-black auténtico.
 
+**🆕 NOW WITH PICOCLAW INTEGRATION**: Real AI agents powered by [PicoClaw](https://github.com/sipeed/picoclaw) with executable tools, multi-LLM support, and autonomous reasoning!
+
 ![Version](https://img.shields.io/badge/version-1.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ---
 
 ## 🎮 Características
+
+### 🦞 PicoClaw Agent Integration (NEW!)
+- **Real AI Agents**: Python implementation of PicoClaw with full functionality
+- **Multi-LLM Support**: Anthropic Claude, OpenAI GPT-4, OpenRouter
+- **Executable Tools**: Shell commands, file operations, web search, memory
+- **Agentic Loop**: Autonomous multi-step reasoning with tool execution
+- **Sandboxed Security**: Dangerous command blocking, path traversal protection
+- **Usage Tracking**: Token counting, cost estimation, tool execution logs
 
 ### Interfaz MGS Codec Auténtica
 - **Estética CRT Retro**: Scanlines, phosphor glow, curvatura de tubo CRT, estática verde
@@ -183,21 +193,29 @@ REACT_APP_BACKEND_URL=http://localhost:8001
 
 ---
 
-## 📡 API de OpenClaw
+## 📡 PicoClaw Integration
 
-Esta aplicación se integra con la API de OpenClaw para orquestación de agentes. Necesitas un token válido de OpenClaw para usar la funcionalidad completa.
+Esta aplicación integra **PicoClaw**, un asistente de IA ultraligero con capacidades reales de agente autónomo.
 
-**Formato del token**: `openclaw_xxxxxxxxxxxxxxxx`
+**Formato del token**: `provider:api_key`
 
-La integración actual es un placeholder que puedes personalizar según la documentación oficial de OpenClaw API.
+**Ejemplos**:
+- `anthropic:sk-ant-api03-xxxxx` - Anthropic Claude
+- `openai:sk-xxxxx` - OpenAI GPT-4
+- `openrouter:sk-or-v1-xxxxx` - OpenRouter
+- `sk-ant-api03-xxxxx` - Default to Anthropic
+
+**📖 Documentación completa**: Ver [PICOCLAW_INTEGRATION.md](./PICOCLAW_INTEGRATION.md)
 
 ---
 
 ## 🎯 Funcionalidades Futuras
 
+- [x] ✅ **PicoClaw Integration** - Completed!
+- [x] ✅ **Sistema de memoria persistente** - Implemented with memory tool
+- [x] ✅ **Real agent capabilities** - Shell, files, web search, etc.
 - [ ] Audio beeps auténticos de MGS
 - [ ] Animaciones de incoming call (ring + vibration)
-- [ ] Sistema de memoria persistente (Markdown files)
 - [ ] Cron jobs scheduler visual
 - [ ] ClawHub de skills personalizadas
 - [ ] Integraciones de mensajería (WhatsApp, Telegram, Discord)
