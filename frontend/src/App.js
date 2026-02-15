@@ -26,15 +26,18 @@ function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [typingMessage, setTypingMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [isIncomingCall, setIsIncomingCall] = useState(false);
   const messagesEndRef = useRef(null);
   const ws = useRef(null);
+  const ringAudioRef = useRef(null);
 
   // Audio refs
   const audioRefs = useRef({
     beep: null,
     callStart: null,
     messageReceived: null,
-    alert: null
+    alert: null,
+    ring: null
   });
 
   // Initialize audio
@@ -58,6 +61,14 @@ function App() {
       audioRefs.current.callStart = await tryFormats('/sounds/call-start');
       audioRefs.current.messageReceived = await tryFormats('/sounds/message-received');
       audioRefs.current.alert = await tryFormats('/sounds/alert');
+
+      // Load ring sound with loop support
+      const ringSound = await tryFormats('/sounds/ring');
+      if (ringSound) {
+        ringSound.loop = true;
+        audioRefs.current.ring = ringSound;
+        ringAudioRef.current = ringSound;
+      }
     };
 
     loadSounds();
@@ -95,6 +106,28 @@ function App() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingMessage]);
+
+  // Cleanup incoming call on unmount or when call state changes
+  useEffect(() => {
+    return () => {
+      if (!isIncomingCall) {
+        // Stop ring sound
+        if (ringAudioRef.current) {
+          ringAudioRef.current.pause();
+          ringAudioRef.current.currentTime = 0;
+        }
+
+        // Stop vibration
+        if ('vibrate' in navigator) {
+          navigator.vibrate(0);
+          if (window.incomingCallVibration) {
+            clearInterval(window.incomingCallVibration);
+            window.incomingCallVibration = null;
+          }
+        }
+      }
+    };
+  }, [isIncomingCall]);
 
   const setupWebSocket = () => {
     const wsUrl = BACKEND_URL.replace('http', 'ws') + '/ws';
@@ -229,11 +262,13 @@ function App() {
       setConversation(response.data);
       setMessages(response.data.messages || []);
 
-      // Play sound if new messages arrived
+      // Trigger incoming call animation if new agent message arrived
       if (playSound && response.data.messages.length > oldLength) {
         const lastMsg = response.data.messages[response.data.messages.length - 1];
         if (lastMsg.role === 'agent') {
           playMessageReceived();
+          // Start incoming call animation
+          startIncomingCall();
         }
       }
     } catch (error) {
@@ -303,6 +338,59 @@ function App() {
   const playAlert = () => playSound('alert');
   const toggleSound = () => setSoundEnabled(!soundEnabled);
 
+  // Incoming call functions
+  const startIncomingCall = () => {
+    if (!soundEnabled) return;
+
+    setIsIncomingCall(true);
+
+    // Start ring sound (looping)
+    if (ringAudioRef.current) {
+      ringAudioRef.current.currentTime = 0;
+      ringAudioRef.current.volume = 0.6;
+      ringAudioRef.current.play().catch(e => console.log('Ring play failed:', e));
+    }
+
+    // Vibration pattern for mobile: [vibrate, pause, vibrate, pause, ...]
+    // Pattern: 200ms on, 100ms off, 200ms on, 100ms off, repeat
+    if ('vibrate' in navigator) {
+      const vibratePattern = [200, 100, 200, 100, 200, 500];
+
+      // Initial vibration
+      navigator.vibrate(vibratePattern);
+
+      // Continue vibrating every 1.5 seconds
+      const vibrateInterval = setInterval(() => {
+        navigator.vibrate(vibratePattern);
+      }, 1500);
+
+      // Store interval for cleanup
+      window.incomingCallVibration = vibrateInterval;
+    }
+  };
+
+  const answerCall = () => {
+    setIsIncomingCall(false);
+
+    // Stop ring sound
+    if (ringAudioRef.current) {
+      ringAudioRef.current.pause();
+      ringAudioRef.current.currentTime = 0;
+    }
+
+    // Stop vibration
+    if ('vibrate' in navigator) {
+      navigator.vibrate(0);
+      if (window.incomingCallVibration) {
+        clearInterval(window.incomingCallVibration);
+        window.incomingCallVibration = null;
+      }
+    }
+
+    // Play answer sound
+    playBeep();
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'connected': return 'bg-mgs-green';
@@ -363,7 +451,7 @@ function App() {
           <div className="codec-main">
             {/* Left Column - Portrait + HUD Metrics */}
             <div className="left-column">
-              <div className="portrait-container">
+              <div className={`portrait-container ${isIncomingCall ? 'incoming-call' : ''}`}>
                 <div className="portrait-frame">
                   {selectedAgent && (
                     <div className="agent-portrait">
@@ -377,6 +465,16 @@ function App() {
                     </div>
                   )}
                 </div>
+
+                {/* Incoming Call Overlay */}
+                {isIncomingCall && (
+                  <div className="incoming-call-overlay" onClick={answerCall}>
+                    <div className="incoming-call-text">
+                      <div className="call-label">◀ INCOMING CALL</div>
+                      <div className="call-action">CLICK TO ANSWER</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* HUD Metrics */}
@@ -512,7 +610,7 @@ function App() {
 
             {/* Right Column - Portrait + Agent Sidebar */}
             <div className="right-column">
-              <div className="portrait-container">
+              <div className={`portrait-container ${isIncomingCall ? 'incoming-call' : ''}`}>
                 <div className="portrait-frame">
                   <div className="agent-portrait">
                     <div className="portrait-image">
@@ -524,6 +622,16 @@ function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* Incoming Call Overlay */}
+                {isIncomingCall && (
+                  <div className="incoming-call-overlay" onClick={answerCall}>
+                    <div className="incoming-call-text">
+                      <div className="call-label">INCOMING CALL ▶</div>
+                      <div className="call-action">CLICK TO ANSWER</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Agent Sidebar */}

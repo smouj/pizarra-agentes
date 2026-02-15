@@ -6,6 +6,7 @@ Place your MGS sound files here:
 - `call-start.mp3` or `call-start.wav` - When initiating a codec call
 - `message-received.mp3` or `message-received.wav` - When receiving a message from agent
 - `alert.mp3` or `alert.wav` - Error or warning sound
+- `ring.mp3` or `ring.wav` - Incoming call ring sound (loops automatically)
 
 The app will automatically detect and use .mp3, .wav, or .ogg formats.
 
