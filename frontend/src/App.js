@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import axios from 'axios';
+import Icon from './Icon';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
@@ -435,10 +436,10 @@ function App() {
               onClick={() => setShowTokenInput(!showTokenInput)}
               data-testid="token-config-btn"
             >
-              <span className="lock-icon">🔒</span> TOKEN
+              <Icon name="lock" className="icon-green icon-sm" /> TOKEN
             </button>
             <button className="control-btn" onClick={checkHealth}>
-              <span className="icon">↻</span> REFRESH
+              <Icon name="refresh" className="icon-green icon-sm" /> REFRESH
             </button>
             <button
               className="control-btn"
@@ -451,7 +452,13 @@ function App() {
               EXIT
             </button>
             <div className="control-info">
-              <span className="text-mgs-green">{hasToken ? '✓ TOKEN CONFIGURED' : '⚠ NO TOKEN'}</span>
+              <span className="text-mgs-green">
+                {hasToken ? (
+                  <><Icon name="check_circle" className="icon-green icon-sm" /> TOKEN CONFIGURED</>
+                ) : (
+                  <><Icon name="warning" className="icon-yellow icon-sm" /> NO TOKEN</>
+                )}
+              </span>
             </div>
           </div>
 
@@ -461,7 +468,9 @@ function App() {
               <div className="modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
                   <span>SECURE TOKEN MANAGER</span>
-                  <button onClick={() => setShowTokenInput(false)} className="modal-close">✕</button>
+                  <button onClick={() => setShowTokenInput(false)} className="modal-close">
+                    <Icon name="close" className="icon-sm" />
+                  </button>
                 </div>
                 <div className="modal-body">
                   <p className="text-mgs-green mb-4">ENTER YOUR OPENCLAW API TOKEN:</p>
@@ -474,7 +483,7 @@ function App() {
                     data-testid="token-input"
                   />
                   <p className="text-mgs-yellow text-xs mt-2">
-                    🔒 Token will be encrypted and stored securely
+                    <Icon name="lock" className="icon-yellow icon-sm" /> Token will be encrypted and stored securely
                   </p>
                 </div>
                 <div className="modal-footer">

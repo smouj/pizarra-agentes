@@ -88,4 +88,18 @@ frontend/.env.production.local
 # Environment files
 *.env
 *.env.*
+backend/.env
+frontend/.env
+
+# PicoClaw reference (cloned repo - not needed in production)
 picoclaw/
+
+# PicoClaw workspaces
+.picoclaw/
+
+# Logs directory
+logs/
+nohup.out
+
+# Scripts output
+*.out
