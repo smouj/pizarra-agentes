@@ -57,21 +57,29 @@ Dashboard de orquestación multi-agente inspirado en la interfaz CODEC de Metal 
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Quick Start
 
-### Requisitos Previos
-- Python 3.11+
-- Node.js 16+
-- MongoDB
-- Yarn
-
-### Instalación
-
-El proyecto ya está configurado y corriendo con Supervisor. Los servicios están activos:
+### One-Command Installation
 
 ```bash
-# Verificar estado
-sudo supervisorctl status
+chmod +x install.sh && ./install.sh
+```
+
+Then start the dashboard:
+
+```bash
+./start.sh
+```
+
+Open your browser: **http://localhost:3000**
+
+**📖 Detailed guide**: See [QUICKSTART.md](./QUICKSTART.md)
+
+### Requirements
+- Python 3.11+
+- Node.js 16+
+- MongoDB 4.4+
+- npm
 
 # Backend: http://localhost:8001
 # Frontend: http://localhost:3000
