@@ -1,6 +1,6 @@
-# 🦞 OpenClaw MGS Codec Dashboard
+# 🐍📡 OpenClaw MGS Codec Dashboard
 
-<img width="659" height="563" alt="image" src="https://github.com/user-attachments/assets/6b1467d7-4875-4546-9db5-e72dabc9a0a0" />
+<img width="1307" height="648" alt="image" src="https://github.com/user-attachments/assets/95ad796e-e933-433c-9e63-82e83f2b76d7" />
 
 ### Pizarra de Agentes con Estética Metal Gear Solid
 
