@@ -23,6 +23,8 @@ function App() {
   const [hasToken, setHasToken] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState('anthropic');
   const [isConnected, setIsConnected] = useState(false);
+  const [openclawConnected, setOpenclawConnected] = useState(false);
+  const [openclawUrl, setOpenclawUrl] = useState('http://localhost:8000');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [typingMessage, setTypingMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -467,6 +469,35 @@ function App() {
     setShowScheduler(true);
   };
 
+  // OpenClaw connection
+  const connectToOpenclaw = async () => {
+    try {
+      playBeep();
+      const response = await axios.get(`${openclawUrl}/api/agents`);
+
+      // Merge OpenClaw agents with local PicoClaw agents
+      const openclawAgents = response.data.map(agent => ({
+        ...agent,
+        source: 'openclaw',
+        id: `openclaw-${agent.id}`
+      }));
+
+      setAgents(prev => {
+        // Keep only PicoClaw agents and add OpenClaw agents
+        const picoAgents = prev.filter(a => !a.source || a.source === 'picoclaw');
+        return [...picoAgents, ...openclawAgents];
+      });
+
+      setOpenclawConnected(true);
+      alert(`✓ Connected to OpenClaw! Found ${openclawAgents.length} agents`);
+    } catch (error) {
+      console.error('Failed to connect to OpenClaw:', error);
+      playAlert();
+      alert(`✗ Failed to connect to OpenClaw at ${openclawUrl}\nMake sure OpenClaw is running.`);
+      setOpenclawConnected(false);
+    }
+  };
+
   return (
     <div className="app-container">
       {/* CRT Screen Container */}
@@ -763,6 +794,13 @@ function App() {
               <Icon name="lock" className="icon-green icon-sm" /> TOKEN
             </button>
             <button
+              className={`control-btn ${openclawConnected ? 'connected' : ''}`}
+              onClick={connectToOpenclaw}
+              title={openclawConnected ? 'Connected to OpenClaw' : 'Connect to OpenClaw'}
+            >
+              <Icon name="hub" className={`icon-sm ${openclawConnected ? 'icon-cyan' : 'icon-green'}`} /> OPENCLAW
+            </button>
+            <button
               className="control-btn"
               onClick={() => {
                 playBeep();
@@ -849,7 +887,7 @@ function App() {
                           onChange={(e) => setSelectedProvider(e.target.value)}
                         />
                         <span className="provider-name">Anthropic Claude</span>
-                        <span className="provider-desc">Claude 3.5 Sonnet, Opus</span>
+                        <span className="provider-desc">Claude 3.5 Sonnet, Opus, Haiku</span>
                       </label>
 
                       <label className={`provider-option ${selectedProvider === 'openai' ? 'selected' : ''}`}>
@@ -861,7 +899,43 @@ function App() {
                           onChange={(e) => setSelectedProvider(e.target.value)}
                         />
                         <span className="provider-name">OpenAI</span>
-                        <span className="provider-desc">GPT-4, GPT-4 Turbo</span>
+                        <span className="provider-desc">GPT-4o, GPT-4 Turbo, o1</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'google' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="google"
+                          checked={selectedProvider === 'google'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">Google Gemini</span>
+                        <span className="provider-desc">Gemini Pro, Gemini Ultra</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'groq' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="groq"
+                          checked={selectedProvider === 'groq'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">Groq</span>
+                        <span className="provider-desc">Ultra-fast inference (Llama, Mixtral)</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'together' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="together"
+                          checked={selectedProvider === 'groq'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">Together AI</span>
+                        <span className="provider-desc">Open-source models (Llama, Mixtral)</span>
                       </label>
 
                       <label className={`provider-option ${selectedProvider === 'openrouter' ? 'selected' : ''}`}>
@@ -873,7 +947,19 @@ function App() {
                           onChange={(e) => setSelectedProvider(e.target.value)}
                         />
                         <span className="provider-name">OpenRouter</span>
-                        <span className="provider-desc">Multi-model access</span>
+                        <span className="provider-desc">Access 200+ models unified</span>
+                      </label>
+
+                      <label className={`provider-option ${selectedProvider === 'cohere' ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="provider"
+                          value="cohere"
+                          checked={selectedProvider === 'cohere'}
+                          onChange={(e) => setSelectedProvider(e.target.value)}
+                        />
+                        <span className="provider-name">Cohere</span>
+                        <span className="provider-desc">Command R+, RAG optimized</span>
                       </label>
                     </div>
                   </div>
@@ -886,6 +972,10 @@ function App() {
                     placeholder={
                       selectedProvider === 'anthropic' ? 'sk-ant-api03-••••••••••••••••' :
                       selectedProvider === 'openai' ? 'sk-••••••••••••••••' :
+                      selectedProvider === 'google' ? 'AIza••••••••••••••••' :
+                      selectedProvider === 'groq' ? 'gsk_••••••••••••••••' :
+                      selectedProvider === 'together' ? '••••••••••••••••' :
+                      selectedProvider === 'cohere' ? '••••••••••••••••' :
                       'sk-or-••••••••••••••••'
                     }
                     className="token-input"
@@ -910,11 +1000,43 @@ function App() {
                         </a>
                       </>
                     )}
+                    {selectedProvider === 'google' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          makersuite.google.com
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === 'groq' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          console.groq.com
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === 'together' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://api.together.xyz/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          api.together.xyz
+                        </a>
+                      </>
+                    )}
                     {selectedProvider === 'openrouter' && (
                       <>
                         <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
                         <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
                           openrouter.ai
+                        </a>
+                      </>
+                    )}
+                    {selectedProvider === 'cohere' && (
+                      <>
+                        <Icon name="info" className="icon-cyan icon-sm" /> Get your key at:{' '}
+                        <a href="https://dashboard.cohere.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-mgs-green">
+                          dashboard.cohere.com
                         </a>
                       </>
                     )}
