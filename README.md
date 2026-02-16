@@ -259,7 +259,7 @@ Esta aplicación integra **PicoClaw**, un asistente de IA ultraligero con capaci
 - [x] ✅ **Sistema de memoria persistente** - Implemented with memory tool
 - [x] ✅ **Real agent capabilities** - Shell, files, web search, etc.
 - [x] ✅ **Audio beeps auténticos de MGS** - Completed!
-- [ ] Animaciones de incoming call (ring + vibration)
+- [x] ✅ **Animaciones de incoming call (ring + vibration)** - Completed!
 - [ ] Cron jobs scheduler visual
 - [ ] ClawHub de skills personalizadas
 - [ ] Integraciones de mensajería (WhatsApp, Telegram, Discord)

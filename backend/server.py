@@ -14,6 +14,10 @@ import json
 from picoclaw_agent import create_default_agent
 from picoclaw_agent.providers import Message as PicoMessage
 
+# Job Scheduler
+from scheduler import JobScheduler, job_scheduler as global_scheduler
+import scheduler as scheduler_module
+
 app = FastAPI(title="OpenClaw MGS Codec API")
 
 # CORS configuration
@@ -174,7 +178,21 @@ async def startup_event():
         for agent_data in DEFAULT_AGENTS:
             agent = Agent(**agent_data)
             await db.agents.insert_one(agent.dict())
+
+    # Initialize job scheduler
+    scheduler_module.job_scheduler = JobScheduler(db)
+    scheduler_module.job_scheduler.start()
+    await scheduler_module.job_scheduler.load_jobs_from_db()
+
     print("🦞 OpenClaw MGS Codec API initialized - FREQUENCY 187.89 MHz")
+    print("⏰ Job Scheduler active - OPERATIONS READY")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    # Shutdown job scheduler
+    if scheduler_module.job_scheduler:
+        scheduler_module.job_scheduler.shutdown()
+    print("🦞 OpenClaw MGS Codec API shutdown - FREQUENCY LOST")
 
 @app.get("/api/health")
 async def health_check():
@@ -486,6 +504,74 @@ async def get_metrics():
         uptime="04:23:17"
     )
     return metrics
+
+# Scheduled Jobs endpoints
+class ScheduledJobCreate(BaseModel):
+    name: str
+    job_type: str  # agent_task, shell_command, webhook
+    trigger_type: str  # cron, interval, date
+    trigger_config: Dict[str, Any]
+    config: Dict[str, Any]
+    enabled: bool = True
+
+@app.get("/api/jobs")
+async def list_jobs():
+    """List all scheduled jobs"""
+    scheduler = scheduler_module.job_scheduler
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+    jobs = await scheduler.list_jobs()
+    return {"jobs": jobs}
+
+@app.get("/api/jobs/{job_id}")
+async def get_job(job_id: str):
+    """Get a specific scheduled job"""
+    scheduler = scheduler_module.job_scheduler
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+    job = await scheduler.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+@app.post("/api/jobs")
+async def create_job(job: ScheduledJobCreate):
+    """Create a new scheduled job"""
+    scheduler = scheduler_module.job_scheduler
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+
+    try:
+        job_id = await scheduler.create_job(job.dict())
+        return {"success": True, "job_id": job_id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/jobs/{job_id}")
+async def delete_job(job_id: str):
+    """Delete a scheduled job"""
+    scheduler = scheduler_module.job_scheduler
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+
+    try:
+        await scheduler.delete_job(job_id)
+        return {"success": True, "job_id": job_id}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/jobs/{job_id}/toggle")
+async def toggle_job(job_id: str, enabled: bool):
+    """Enable or disable a scheduled job"""
+    scheduler = scheduler_module.job_scheduler
+    if not scheduler:
+        raise HTTPException(status_code=503, detail="Scheduler not initialized")
+
+    try:
+        await scheduler.toggle_job(job_id, enabled)
+        return {"success": True, "job_id": job_id, "enabled": enabled}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # WebSocket endpoint
 @app.websocket("/ws")

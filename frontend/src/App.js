@@ -27,6 +27,8 @@ function App() {
   const [typingMessage, setTypingMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isIncomingCall, setIsIncomingCall] = useState(false);
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduledJobs, setScheduledJobs] = useState([]);
   const messagesEndRef = useRef(null);
   const ws = useRef(null);
   const ringAudioRef = useRef(null);
@@ -419,6 +421,44 @@ function App() {
     return `${day}${month}${year} ${hours}:${minutes}`;
   };
 
+  // Scheduler functions
+  const loadScheduledJobs = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/jobs`);
+      setScheduledJobs(response.data.jobs || []);
+    } catch (error) {
+      console.error('Failed to load scheduled jobs:', error);
+    }
+  };
+
+  const deleteScheduledJob = async (jobId) => {
+    try {
+      await axios.delete(`${BACKEND_URL}/api/jobs/${jobId}`);
+      playBeep();
+      loadScheduledJobs();
+    } catch (error) {
+      console.error('Failed to delete job:', error);
+      playAlert();
+    }
+  };
+
+  const toggleScheduledJob = async (jobId, enabled) => {
+    try {
+      await axios.put(`${BACKEND_URL}/api/jobs/${jobId}/toggle?enabled=${enabled}`);
+      playBeep();
+      loadScheduledJobs();
+    } catch (error) {
+      console.error('Failed to toggle job:', error);
+      playAlert();
+    }
+  };
+
+  const openScheduler = () => {
+    playBeep();
+    loadScheduledJobs();
+    setShowScheduler(true);
+  };
+
   return (
     <div className="app-container">
       {/* CRT Screen Container */}
@@ -699,6 +739,13 @@ function App() {
             </button>
             <button
               className="control-btn"
+              onClick={openScheduler}
+              title="Manage scheduled operations"
+            >
+              <Icon name="schedule" className="icon-green icon-sm" /> MISSIONS
+            </button>
+            <button
+              className="control-btn"
               onClick={() => {
                 playBeep();
                 if (conversation && messages.length > 0) {
@@ -851,6 +898,131 @@ function App() {
                     className="modal-btn cancel"
                   >
                     CANCEL
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Scheduler Modal */}
+          {showScheduler && (
+            <div className="modal-overlay" onClick={() => setShowScheduler(false)}>
+              <div className="modal-content scheduler-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="modal-header">
+                  <span>⏰ SCHEDULED OPERATIONS</span>
+                  <button onClick={() => setShowScheduler(false)} className="modal-close">
+                    <Icon name="close" className="icon-sm" />
+                  </button>
+                </div>
+                <div className="modal-body">
+                  <div className="scheduler-header">
+                    <p className="text-mgs-green font-bold mb-2">
+                      <Icon name="schedule" className="icon-green icon-sm" /> MISSION SCHEDULER
+                    </p>
+                    <p className="text-mgs-cyan text-xs mb-4">
+                      Automate agent tasks, shell commands, and webhooks with cron-like scheduling
+                    </p>
+                  </div>
+
+                  {/* Job List */}
+                  <div className="job-list">
+                    {scheduledJobs.length === 0 ? (
+                      <div className="no-jobs">
+                        <Icon name="event_available" className="icon-green" style={{fontSize: '3rem'}} />
+                        <p className="text-mgs-green mt-2">NO SCHEDULED OPERATIONS</p>
+                        <p className="text-mgs-cyan text-xs mt-1">Create a new mission to get started</p>
+                      </div>
+                    ) : (
+                      scheduledJobs.map((job) => (
+                        <div key={job._id} className={`job-item ${job.enabled ? 'enabled' : 'disabled'}`}>
+                          <div className="job-header">
+                            <div className="job-name">
+                              <Icon name={job.job_type === 'agent_task' ? 'smart_toy' : job.job_type === 'shell_command' ? 'terminal' : 'webhook'} className="icon-green icon-sm" />
+                              <span>{job.name}</span>
+                            </div>
+                            <div className="job-status">
+                              <span className={`status-badge ${job.status}`}>
+                                {job.status?.toUpperCase() || 'PENDING'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="job-details">
+                            <div className="job-info">
+                              <span className="text-mgs-cyan text-xs">TYPE:</span>
+                              <span className="text-mgs-green">{job.job_type?.replace('_', ' ').toUpperCase()}</span>
+                            </div>
+                            <div className="job-info">
+                              <span className="text-mgs-cyan text-xs">SCHEDULE:</span>
+                              <span className="text-mgs-green">{job.trigger_type?.toUpperCase()}</span>
+                            </div>
+                            {job.next_run && (
+                              <div className="job-info">
+                                <span className="text-mgs-cyan text-xs">NEXT RUN:</span>
+                                <span className="text-mgs-yellow">{new Date(job.next_run).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {job.last_run && (
+                              <div className="job-info">
+                                <span className="text-mgs-cyan text-xs">LAST RUN:</span>
+                                <span className="text-mgs-green">{new Date(job.last_run).toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="job-actions">
+                            <button
+                              className={`job-btn ${job.enabled ? 'pause' : 'play'}`}
+                              onClick={() => {
+                                playBeep();
+                                toggleScheduledJob(job._id, !job.enabled);
+                              }}
+                              title={job.enabled ? 'Pause' : 'Resume'}
+                            >
+                              <Icon name={job.enabled ? 'pause' : 'play_arrow'} className="icon-sm" />
+                              {job.enabled ? 'PAUSE' : 'RESUME'}
+                            </button>
+                            <button
+                              className="job-btn delete"
+                              onClick={() => {
+                                if (window.confirm(`Delete mission: ${job.name}?`)) {
+                                  deleteScheduledJob(job._id);
+                                }
+                              }}
+                              title="Delete"
+                            >
+                              <Icon name="delete" className="icon-sm" />
+                              DELETE
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Create Job Instructions */}
+                  <div className="scheduler-footer">
+                    <p className="text-mgs-cyan text-xs mt-4">
+                      <Icon name="info" className="icon-cyan icon-sm" /> Use the API or backend to create new scheduled jobs.
+                      Documentation: <span className="text-mgs-green">/api/jobs</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    onClick={() => {
+                      playBeep();
+                      loadScheduledJobs();
+                    }}
+                    className="modal-btn save"
+                  >
+                    <Icon name="refresh" className="icon-sm" /> REFRESH
+                  </button>
+                  <button
+                    onClick={() => setShowScheduler(false)}
+                    className="modal-btn cancel"
+                  >
+                    CLOSE
                   </button>
                 </div>
               </div>
