@@ -29,6 +29,7 @@ function App() {
   const [isIncomingCall, setIsIncomingCall] = useState(false);
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledJobs, setScheduledJobs] = useState([]);
+  const [codecOpening, setCodecOpening] = useState(true);
   const messagesEndRef = useRef(null);
   const ws = useRef(null);
   const ringAudioRef = useRef(null);
@@ -83,6 +84,12 @@ function App() {
     loadMetrics();
     checkConfig();
 
+    // Codec opening animation
+    const openingTimer = setTimeout(() => {
+      setCodecOpening(false);
+      playCallStart();
+    }, 2500);
+
     // Update time every second
     const timeInterval = setInterval(() => {
       setCurrentTime(new Date());
@@ -97,6 +104,7 @@ function App() {
     setupWebSocket();
 
     return () => {
+      clearTimeout(openingTimer);
       clearInterval(timeInterval);
       clearInterval(metricsInterval);
       if (ws.current) ws.current.close();
@@ -462,10 +470,22 @@ function App() {
   return (
     <div className="app-container">
       {/* CRT Screen Container */}
-      <div className="crt-screen">
+      <div className={`crt-screen ${codecOpening ? 'codec-opening' : ''}`}>
+        {/* Codec Opening Animation */}
+        {codecOpening && (
+          <div className="codec-boot-screen">
+            <div className="boot-logo">CODEC</div>
+            <div className="boot-text">FREQUENCY 187.89 MHz</div>
+            <div className="boot-status">INITIALIZING...</div>
+            <div className="boot-progress">
+              <div className="boot-progress-bar"></div>
+            </div>
+          </div>
+        )}
+
         {/* Scanlines Effect */}
         <div className="scanlines"></div>
-        
+
         {/* Static Noise */}
         <div className="static-noise"></div>
 
@@ -473,7 +493,7 @@ function App() {
         <div className="vignette"></div>
 
         {/* Main Content */}
-        <div className="codec-container">
+        <div className={`codec-container ${codecOpening ? 'hidden' : ''}`}>
           {/* Top Bar - Frequency Display */}
           <div className="top-bar">
             <div className="frequency-display">
@@ -496,7 +516,17 @@ function App() {
                   {selectedAgent && (
                     <div className="agent-portrait">
                       <div className="portrait-image">
-                        <div className={`avatar-${selectedAgent.avatar}`}></div>
+                        <img
+                          src={`/portraits/${selectedAgent.avatar}.png`}
+                          alt={selectedAgent.name}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        <div className="avatar-placeholder" style={{display: 'none'}}>
+                          {selectedAgent.name.charAt(0)}
+                        </div>
                       </div>
                       <div className="portrait-info">
                         <div className="portrait-name">{selectedAgent.name}</div>
@@ -654,7 +684,17 @@ function App() {
                 <div className="portrait-frame">
                   <div className="agent-portrait">
                     <div className="portrait-image">
-                      <div className="avatar-operator"></div>
+                      <img
+                        src="/portraits/operator.png"
+                        alt="Operator"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div className="avatar-placeholder" style={{display: 'none'}}>
+                        O
+                      </div>
                     </div>
                     <div className="portrait-info">
                       <div className="portrait-name">OPERATOR</div>
