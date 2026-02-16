@@ -118,7 +118,7 @@ DEFAULT_AGENTS = [
         "name": "Orchestrator",
         "type": "orchestrator",
         "status": "connected",
-        "avatar": "commander",
+        "avatar": "orchestrator",
         "frequency": "187.89",
         "capabilities": ["coordination", "task_delegation", "strategy"],
         "description": "Central command unit for multi-agent coordination"
@@ -127,7 +127,7 @@ DEFAULT_AGENTS = [
         "name": "Shell Executor",
         "type": "shell",
         "status": "connected",
-        "avatar": "tech",
+        "avatar": "shell-executor",
         "frequency": "141.12",
         "capabilities": ["bash", "system_commands", "automation"],
         "description": "Terminal operations and system command execution"
@@ -136,7 +136,7 @@ DEFAULT_AGENTS = [
         "name": "Browser Agent",
         "type": "browser",
         "status": "offline",
-        "avatar": "scout",
+        "avatar": "browser-agent",
         "frequency": "140.85",
         "capabilities": ["web_scraping", "automation", "research"],
         "description": "Web navigation and data extraction specialist"
@@ -145,7 +145,7 @@ DEFAULT_AGENTS = [
         "name": "File Manager",
         "type": "file",
         "status": "connected",
-        "avatar": "intel",
+        "avatar": "file-manager",
         "frequency": "140.15",
         "capabilities": ["file_ops", "search", "organization"],
         "description": "File system operations and data management"
@@ -154,7 +154,7 @@ DEFAULT_AGENTS = [
         "name": "Communications",
         "type": "messaging",
         "status": "busy",
-        "avatar": "comms",
+        "avatar": "communications",
         "frequency": "142.52",
         "capabilities": ["email", "messaging", "notifications"],
         "description": "Multi-channel communication handler"
@@ -163,7 +163,7 @@ DEFAULT_AGENTS = [
         "name": "Custom Skill",
         "type": "custom",
         "status": "offline",
-        "avatar": "specialist",
+        "avatar": "custom-skill",
         "frequency": "143.74",
         "capabilities": ["custom_tasks", "plugins", "extensions"],
         "description": "Specialized custom skill execution unit"
