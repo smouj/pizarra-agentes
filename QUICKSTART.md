@@ -4,7 +4,7 @@
 
 ```bash
 git clone https://github.com/smouj/openclaw-mgs-codec.git
-cd pizarra-agentes
+cd openclaw-mgs-codec
 chmod +x install.sh && ./install.sh
 ```
 
