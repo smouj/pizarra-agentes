@@ -39,6 +39,13 @@ function App() {
   const ws = useRef(null);
   const ringAudioRef = useRef(null);
 
+  // Toast notifications
+  const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+  const showToast = (message, type = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast(prev => ({ ...prev, show: false })), 4000);
+  };
+
   // Audio refs
   const audioRefs = useRef({
     beep: null,
@@ -209,7 +216,7 @@ function App() {
 
   const saveToken = async () => {
     if (!openclawToken.trim()) {
-      alert('Please enter an API key');
+      showToast('Please enter an API key', 'warning');
       return;
     }
 
@@ -229,7 +236,7 @@ function App() {
         setOpenclawToken('');
         setSelectedProvider('anthropic');
         playBeep();
-        alert('✓ API token configured successfully!');
+        showToast('✓ API token configured successfully!', 'success');
       }
     } catch (error) {
       console.error('Failed to save token:', error);
@@ -247,7 +254,7 @@ function App() {
         errorMessage += error.message;
       }
 
-      alert(errorMessage);
+      showToast(errorMessage, 'error');
     }
   };
 
@@ -265,8 +272,7 @@ function App() {
       setSelectedAgent(agent);
     } catch (error) {
       console.error('Failed to start conversation:', error);
-      playAlert();
-      alert('Failed to initiate codec call. Check connection.');
+      showToast('Failed to initiate codec call. Check connection.', 'error');
     }
   };
 
@@ -293,9 +299,14 @@ function App() {
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || !conversation) return;
+
     if (!hasToken) {
-      alert('Please configure your API token first. Click the TOKEN button to set up your AI provider.');
-      setShowTokenInput(true);
+      showToast('No API token found. Sending message via local fallback or waiting for token.', 'warning');
+      // We will allow adding a local message and a system warning
+      const fakeUserMessage = { role: 'user', content: inputMessage, timestamp: new Date().toISOString() };
+      const tokenWarningMessage = { role: 'system', content: 'SYSTEM WARNING: No API token configured. Please click the TOKEN button to set up your AI provider to receive external responses.', timestamp: new Date().toISOString() };
+      setMessages(prev => [...prev, fakeUserMessage, tokenWarningMessage]);
+      setInputMessage('');
       return;
     }
 
@@ -541,17 +552,24 @@ function App() {
       });
 
       setOpenclawConnected(true);
-      alert(`✓ Connected to OpenClaw! Found ${openclawAgents.length} agents`);
+      showToast(`✓ Connected to OpenClaw! Found ${openclawAgents.length} agents`, 'success');
     } catch (error) {
       console.error('Failed to connect to OpenClaw:', error);
-      playAlert();
-      alert(`✗ Failed to connect to OpenClaw at ${openclawUrl}\nMake sure OpenClaw is running.`);
       setOpenclawConnected(false);
+      showToast(`✗ Failed to connect to OpenClaw at ${openclawUrl}\nMake sure OpenClaw is running.`, 'error');
     }
   };
 
   return (
     <div className="app-container">
+      {/* Toast Notification Container */}
+      <div className={`toast-container ${toast.show ? 'show' : ''} ${toast.type}`}>
+        <div className="toast-icon">
+          <Icon name={toast.type === 'error' ? 'error' : toast.type === 'warning' ? 'warning' : 'info'} className="icon-sm" />
+        </div>
+        <div className="toast-content">{toast.message}</div>
+      </div>
+
       {/* CRT Screen Container */}
       <div className={`crt-screen ${codecOpening ? 'codec-opening' : ''}`}>
         {/* Codec Opening Animation */}
@@ -648,8 +666,8 @@ function App() {
                   <span className="metric-value digital">{metrics.active_agents}/{agents.length}</span>
                 </div>
                 <div className="metric-item">
-                  <span className="metric-label">{t("memory")}</span>
-                  <span className="metric-value digital">{metrics.memory_usage.toFixed(1)}%</span>
+                  <span className="metric-label">TOKENS</span>
+                  <span className="metric-value digital" title="Used Tokens / Minute limit">{metrics.tokens_per_minute}</span>
                 </div>
               </div>
             </div>
@@ -683,7 +701,7 @@ function App() {
                         navigator.clipboard.writeText(
                           messages.map(m => `[${m.role.toUpperCase()}] ${m.content}`).join('\n\n')
                         );
-                        alert('✓ Conversation copied to memory (clipboard)');
+                        showToast('✓ Conversation copied to memory (clipboard)', 'success');
                       }
                     }}
                     title="Save conversation to memory"
@@ -746,13 +764,13 @@ function App() {
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   placeholder={hasToken ? t("enter_message") : t("config_first")}
-                  disabled={!conversation || !hasToken}
+                  disabled={!conversation}
                   className="message-input"
                   data-testid="message-input"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={!conversation || !inputMessage.trim() || !hasToken}
+                  disabled={!conversation || !inputMessage.trim()}
                   className="send-btn"
                   data-testid="send-message-btn"
                 >
